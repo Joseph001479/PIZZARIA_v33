@@ -8,7 +8,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import base64
-import os
 
 app = Flask(__name__)
 CORS(app)
@@ -24,7 +23,10 @@ def auth_header():
     return {
         "Authorization": f"Basic {token}",
         "Content-Type":  "application/json",
-        "Accept":        "application/json"
+        "Accept":        "application/json",
+        "User-Agent":    "python-requests/2.31.0",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection":    "keep-alive"
     }
 
 
@@ -165,6 +167,24 @@ def verificar_pix(tid):
 @app.route("/", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "servidor": "Pizzaria Barbosa rodando!"})
+
+
+@app.route("/testar-api", methods=["GET"])
+def testar_api():
+    """Testa conexão com SkalePay"""
+    try:
+        resp = requests.get(
+            f"{SKALE_API_URL}/transactions",
+            headers=auth_header(),
+            timeout=15
+        )
+        return jsonify({
+            "status_code": resp.status_code,
+            "headers":     dict(resp.headers),
+            "body":        resp.text[:500]
+        })
+    except Exception as e:
+        return jsonify({"erro": str(e)})
 
 
 if __name__ == "__main__":
