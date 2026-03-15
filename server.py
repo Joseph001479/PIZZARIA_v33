@@ -20,7 +20,7 @@ SKALE_API_URL    = "https://api.conta.skalepay.com.br/v1"
 
 def auth_header():
     """Basic Auth: base64(chave:)"""
-    token = base64.b64encode(f"{SKALE_SECRET_KEY}:".encode("utf-8")).decode("utf-8")
+    token = base64.b64encode(f"{SKALE_SECRET_KEY}:x".encode("utf-8")).decode("utf-8")
     return {
         "Authorization": f"Basic {token}",
         "Content-Type":  "application/json",
