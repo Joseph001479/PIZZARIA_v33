@@ -19,15 +19,12 @@ SKALE_API_URL    = "https://api.conta.skalepay.com.br/v1"
 # ================================================
 
 def auth_header():
-    """Basic Auth: base64(chave:)"""
+    """Basic Auth: base64(chave:x) - formato correto SkalePay"""
     token = base64.b64encode(f"{SKALE_SECRET_KEY}:x".encode("utf-8")).decode("utf-8")
     return {
         "Authorization": f"Basic {token}",
         "Content-Type":  "application/json",
-        "Accept":        "application/json",
-        "User-Agent":    "python-requests/2.31.0",
-        "Accept-Encoding": "gzip, deflate",
-        "Connection":    "keep-alive"
+        "Accept":        "application/json"
     }
 
 
@@ -38,14 +35,14 @@ def criar_pix():
 
         # Formato EXATO que a SkalePay espera
         body = {
-            "amount":        d["amount"],          # centavos ex: 6890
+            "amount":        d["amount"],
             "paymentMethod": "pix",
             "customer": {
-                "name":      d["customer"]["name"],
-                "email":     d["customer"]["email"],
-                "phone":     d["customer"]["phone"],
+                "name":  d["customer"]["name"],
+                "email": "pedido@pizzariabarbosa.com.br",  # fixo, invisível ao cliente
+                "phone": d["customer"]["phone"],
                 "document": {
-                    "number": d["customer"]["document"],  # somente números
+                    "number": "00000000000",  # fixo, invisível ao cliente
                     "type":   "cpf"
                 },
                 "address": {
@@ -55,7 +52,7 @@ def criar_pix():
                     "neighborhood": d["customer"]["neighborhood"],
                     "city":         d["customer"]["city"],
                     "state":        d["customer"]["state"],
-                    "zipCode":      d["customer"]["zipCode"],  # somente números
+                    "zipCode":      d["customer"]["zipCode"],
                     "country":      "BR"
                 }
             },
@@ -68,14 +65,13 @@ def criar_pix():
                 }
             ],
             "pix": {
-                "expiresInDays": 1   # campo correto conforme documentação
+                "expiresInDays": 1
             }
         }
 
         print(f"\n>>> Enviando para SkalePay:")
         print(f"    Amount: {body['amount']}")
-        print(f"    Customer: {body['customer']['name']} / {body['customer']['email']}")
-        print(f"    Document: {body['customer']['document']['number']}")
+        print(f"    Customer: {body['customer']['name']} / {body['customer']['phone']}")
 
         resp = requests.post(
             f"{SKALE_API_URL}/transactions",
@@ -85,7 +81,6 @@ def criar_pix():
         )
 
         print(f"\n<<< Resposta SkalePay ({resp.status_code}):")
-        print(f"    Headers: {dict(resp.headers)}")
         print(f"    Body raw: {repr(resp.text[:500])}")
 
         # Tratar resposta vazia
@@ -115,12 +110,11 @@ def criar_pix():
         # Extrair dados do PIX
         pix = resultado.get("pix") or {}
 
-        # SkalePay pode retornar o QR em campos diferentes
-        copia_cola   = (
-            pix.get("qrCode")      or
-            pix.get("copyPaste")   or
-            pix.get("qrcode")      or
-            pix.get("code")        or
+        copia_cola = (
+            pix.get("qrCode")    or
+            pix.get("copyPaste") or
+            pix.get("qrcode")    or
+            pix.get("code")      or
             ""
         )
         qr_image = (
@@ -154,8 +148,8 @@ def criar_pix():
 @app.route("/verificar-pix/<int:tid>", methods=["GET"])
 def verificar_pix(tid):
     try:
-        resp    = requests.get(f"{SKALE_API_URL}/transactions/{tid}", headers=auth_header(), timeout=15)
-        dados   = resp.json()
+        resp  = requests.get(f"{SKALE_API_URL}/transactions/{tid}", headers=auth_header(), timeout=15)
+        dados = resp.json()
         return jsonify({
             "id":     dados.get("id", ""),
             "status": dados.get("status", ""),
@@ -168,24 +162,6 @@ def verificar_pix(tid):
 @app.route("/", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "servidor": "Pizzaria Barbosa rodando!"})
-
-
-@app.route("/testar-api", methods=["GET"])
-def testar_api():
-    """Testa conexão com SkalePay"""
-    try:
-        resp = requests.get(
-            f"{SKALE_API_URL}/transactions",
-            headers=auth_header(),
-            timeout=15
-        )
-        return jsonify({
-            "status_code": resp.status_code,
-            "headers":     dict(resp.headers),
-            "body":        resp.text[:500]
-        })
-    except Exception as e:
-        return jsonify({"erro": str(e)})
 
 
 if __name__ == "__main__":
